@@ -6,7 +6,7 @@ import math
 import numpy as np
 import prd
 
-# function that gets the respiratory position (between 0 and 255) and asign it into a gate given a number of gates
+# open a csv file and read time stamps (first column) and respiratory_amplitude (second column)
 
 
 def asign_gate(
@@ -23,13 +23,21 @@ def asign_gate(
 
 
 if __name__ == "__main__":
+    # check if the number of arguments is correct
+    if len(sys.argv) != 5:
+        print(
+            "Usage: python split_to_respiratory_gates.py <input_file> <number_of_gates> <minimum_respiratory_amplitude> <maximum_respiratory_amplitude>"
+        )
+        sys.exit(1)
+    # asign the arguments to variables
     input_file = sys.argv[1]
     number_of_gates = int(sys.argv[2])
     minimum_respiratory_amplitude = float(sys.argv[3])
     maximum_respiratory_amplitude = float(sys.argv[4])
-
+    # read the input file
     reader = prd.BinaryPrdExperimentReader(input_file)
     header = reader.read_header()
+    # temporary print statements to check the header
     print(f"Subject ID: {header.exam.subject.id}")
     print(f"Number of detectors: {header.scanner.number_of_detectors()}")
     print(f"Number of TOF bins: {header.scanner.number_of_tof_bins()}")
@@ -37,8 +45,9 @@ if __name__ == "__main__":
 
     # run the asign_gate function for each event and add the gate to the event
     all_events = asign_gate(
-        number_of_gates,
+        254,
         number_of_gates,
         minimum_respiratory_amplitude,
         maximum_respiratory_amplitude,
     )
+    print("this goes to this gate:", all_events)
