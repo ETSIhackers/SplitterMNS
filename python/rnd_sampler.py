@@ -88,8 +88,7 @@ if __name__ == "__main__":
 				if random.random() < args.retFrac:
 					nbTimeBlockKept += 1
 					print(f"Current time block {tbID}")
-					tmp = (prd.TimeBlock(id=time_block.id, prompt_events=time_block.prompt_events), )
-					writer.write_time_blocks(tmp)
+					writer.write_time_blocks((time_block,))
 			elif args.randoMethod == "event":
 				dsa = 0
 				# for event in time_block.prompt_events:
