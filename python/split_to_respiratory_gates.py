@@ -1,5 +1,5 @@
 # date: 2023-11-14
-# Author: Geprgios Soultanidis
+# Author: Georgios Soultanidis
 # version: 0.01
 
 # Usage: python split_to_respiratory_gates.py <input_file> <number_of_gates> <minimum_respiratory_amplitude> <maximum_respiratory_amplitude>
