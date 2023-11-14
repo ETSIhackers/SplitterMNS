@@ -1,6 +1,7 @@
 # date: 2023-11-14
 # Author: Georgios Soultanidis
-# version: 0.01
+# Affiliation: BMEII, Icahn School of Medicine at Mount Sinai
+# version: 0.1
 
 # Usage: python split_to_respiratory_gates.py <input_file> <number_of_gates> <minimum_respiratory_amplitude> <maximum_respiratory_amplitude>
 # Amplitude based respiratory gating, where the user defines the number of gates, the minimum and maximum respiratory amplitude
@@ -65,17 +66,21 @@ if __name__ == "__main__":
     print(f"Number of TOF bins: {header.scanner.number_of_tof_bins()}")
     print(f"Number of energy bins: {header.scanner.number_of_energy_bins()}")
 
-    # run the asign_gate function for each event and add the gate to the event
-    all_events = asign_gate(
-        254,
-        number_of_gates,
-        minimum_respiratory_amplitude,
-        maximum_respiratory_amplitude,
-    )
     # load the respirtatory signal TODO this part will be replaced with the in-packet physio data
     time_stamps, resp_amplitude = read_csv_file("physio/resp_sino.csv")
-    # create acounter for the time stamps, where it starts with 0. TODO, this part will change, if physio is in-packet
+    # create acounter for the time stamps, where it starts with 0. TODO, this part will change, if physio is in-packet.
     time_stamp_counter = 0
+    # initiallize the writer
+    writers = [
+        prd.BinaryPrdExperimentWriter(f"test_{i}.raw")
+        for i in range(0, number_of_gates)
+    ]
+    for writer_gate in writers:
+        writer_gate.write_header(header)
+
+    # writer = prd.BinaryPrdExperimentWriter("test.raw")
+    # writer.write_header(header)
+
     # get all the time blocks and for each one, get the events
     for time_block in reader.read_time_blocks():
         # for now, we just assume that the first time block has the same time stamp with the first physio record
@@ -100,3 +105,7 @@ if __name__ == "__main__":
             "gate is: ",
             gate_indicator,
         )
+
+        writers[gate_indicator].write_time_blocks([time_block])
+    for writer_gate in writers:
+        writer_gate.close()
