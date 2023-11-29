@@ -1,6 +1,8 @@
-# PETSIRD template for use cases
+# PETSIRD use case: split and merge dataset
 
-The purpose of this repo is to provide a starting point for other software that uses PETSIRD.
+The purpose of this repo is to provide splitting and merging capabilities for datasets saved in the PETSIRD format.
+
+
 
 ## Background
 The [Emission Tomography Standardization Initiative (ETSI)](https://etsinitiative.org/)
@@ -9,36 +11,29 @@ is working towards establishing a standard for PET Raw Data, called PETSIRD ("PE
 The specification uses the [yardl](https://aka.ms/yardl) tool to define the model. `yardl` can be
 used to read the specification (in the `model` directory) and generate an PI for both C++ and API to read/write PETSIRD data.
 
-Currently, a draft model is defined in https://github.com/ETSInitiative/PRDdefinition.
+This use case was started at the start of November 2023 from a draft model of PETSIRD which is defined in https://github.com/ETSInitiative/PRDdefinition.
 
 CAVEAT: the draft model generates code in the `prd` namespace. Nevertheless, we have used the name PETSIRD here
 in most places (except where needed).
 
-## dsa do something
+## Current capabilities
+Three tools are currently available. All of them are only in python right now.
 
-## How to use this template?
+### rnd_sampler
+Enable the generation of a noisier instance of a dataset by either dropping times block or events.
 
-These instructions will use `YourRepoName` for the name of your new repository. Obviously replace it with something appropriate.
+### merger
+Merge multiple datasets in one dataset.
+`(Un-tested right now, might or might not work...)`
 
-#### Create a new repository based on this template
+### rnd_gating_amplitude
+Reads the physio data from a csv file and assigns a gate to each event based on the physio_1 amplitude.
 
-Easiest is to start from GitHub:
-1. Navigate to the URL of this repo: https://github.com/ETSInitiative/PETSIRDUseCaseTemplate
-2. Click on the `Use this template` button and create your own repo
-3. Pull it to your own local machine and modify
-   1. Search-and-replace all occurences of `PETSIRDUseCaseTemplate` with `YourRepoName`
-   2. Update the README.md to remove references to this template and write something about what your repo is going to do
-   3. Update the `environment.yml`to include what you need. For instance, if you need ROOT, add something like `- root=6.28.0`
-   4. Make some other basic changes and commit
-      ```sh
-      git commit -a -m "Updated template to YourRepoName"
-      git push
-      ```
 
-### Using your repo
 
-1. Open ***your*** repo in [GitHub Codespaces](https://code.visualstudio.com/docs/remote/codespaces) or
-in a [VS Code devcontainer](https://code.visualstudio.com/docs/devcontainers/containers).
+## How to use this repo
+
+1. Open the repo in [GitHub Codespaces](https://code.visualstudio.com/docs/remote/codespaces) or in a [VS Code devcontainer](https://code.visualstudio.com/docs/devcontainers/containers).
 This codespace/container will contain all necessary tools, including `yardl` itself, as well as your repository.
 2. Use `yardl` to generate C++ and Python code for the model:
   ```sh
@@ -47,6 +42,4 @@ This codespace/container will contain all necessary tools, including `yardl` its
   yardl generate
   cd ../..
   ```
-3. Start working in either the [`cpp`](cpp/README.md) and/or [`python`](python/README.md) directories.
-
-
+3. See the help of the script of interest in the python folder for further explanation. (Currently, the cpp equivalent or unavailable.)

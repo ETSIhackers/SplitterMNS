@@ -6,6 +6,13 @@ Initiative (ETSI), https://etisinitiative.org.
 Main contributors:
 Kris Thielemans (UCL)
 
+Hackers:
+Nikos Efthimiou (MGH)
+Ezzat Elmoujarkach (Univ Lübeck)
+George Soultanidis (BMEII)
+Maxime Toussaint (UdS)
+Glenn Wells (uOttawa)
+
 ### Apache License ###
 
 All documents are covered by the Apache 2.0 license, unless otherwise specified.
