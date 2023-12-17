@@ -2,53 +2,140 @@
 # -*- coding: utf-8 -*-
 
 '''
-Goal of this module: dsa
+Goal of this module: Merge multiple acquisitions files into one file.
+
+Two modes are supported: (They cannot be used at the same time)
+	- Append time-wise:
+		- The order of concatennation is determined by the order of the acquisitions
+		  files provided as argument.
+		- Start time are interpreted as time lapse between two acquisitions
+			- If it is not provided, a null time lapse is assumed.
+	- Fusion time wise:
+		- The order of the acquisitions files provided as argument is irrevalent.
+		- The start time are interpreted in absolute. If they are not provided, it is
+		  assumed to start at 0 seconds.
+		- Currently, acquisitions with variable time step are not supported. A basic
+		  attempt is made to warn the user that the files provided are not supported.
+
+
 merge -acq file1[;start1] [file2;[start2]]
-
-
-dsa currently merge on the left and in the largest
-
 TODO:
 	Core:
-		- dsa
+		- Implement and test the append mode
+		- Implement and test the fuse mode
+		- Make the two mode work together?
 	Feature:
 		- Support nice time format
 '''
 
 
+
 #########################################################################################
 # Modules
 #########################################################################################
+# Basic python module
 import argparse
-import copy
-# from datetime import datetime
-import prd
 import sys
+from typing import Union, List
+from argparse import Namespace
+
+# This project module
+import prd
+
 
 
 #########################################################################################
 # Function
 #########################################################################################
+def parseAcqArguments(_args: Namespace):
+	if _args.headerProvider is not None:
+		sys.exit("The option --headProvider is currently not supported.")
+
+	if _args.fuse is None and _args.app is None:
+		sys.exit("The script requires the use of one of the two modes (fuse vs app).")
+
+	if _args.fuse is not None and _args.app is not None:
+		sys.exit("The script currently only work with one of the two modes (fuse vs "
+		         "app) activated.")
+
+	mergeInfos = []
+	if _args.fuse is not None:
+		mergeInfos = _args.fuse
+		if len(_args.fuse) < 2:
+			sys.exit("At least two files are required for the fuse feature.")
+
+	if _args.app is not None:
+		mergeInfos = _args.app
+		if len(_args.fuse) < 2:
+			sys.exit("At least two files are required for the fuse feature.")
+
+	acqPaths, startTime = extractMergeInfo(mergeInfos)
+
+	# TODO: sanity check existance prior starting
+
+	return acqPaths, startTime
+
+
+def extractMergeInfo(_mergeInfos: List[str]):
+	acqPaths = []
+	startTime = []
+
+	for cFile in _mergeInfos:
+		if cFile.find(";") == -1:
+			cAcqPath = cFile
+			cStartTime = 0
+		else:
+			cAcqPath, cStartTime = cFile.split(";")
+			# Since we currently assume user always provide in seconds and that the
+			# acquisitions files are in milli-seconds.
+			cStartTime = float(cStartTime) * 1000.0
+		acqPaths.append(cAcqPath)
+		startTime.append(cStartTime)
+
+	return acqPaths, startTime
+
+
+def defineWriter(oFile: Union[str, None], verbose: int):
+	if oFile is None:
+		if verbose > 0:
+			print("Warning: if the output is redirected into a file, the verbosity "
+			      "might break the file produced.")
+			input("Press Enter to continue...")
+		return sys.stdout.buffer
+	else:
+		return oFile
+
+
+
+#########################################################################################
+# Scripting functionnality
+#########################################################################################
 def parserCreator():
-	parser = argparse.ArgumentParser(description="Create a dsa")
+	parser = argparse.ArgumentParser(description="Merge multiple acquisitions files "
+								  "in a single file. ")
 
 	##################################################
 	# Basic
-	parser.add_argument('--acqFile', action='store', type=str, required=True,
-	                    dest='acq', nargs='+',
+	parser.add_argument('--fuse', action='store', type=str, required=False,
+	                    dest='fuse', nargs='+', default= None,
+	                    help='File dsa file1[,start1] [file2,[start2]] in s dsa.')
+	parser.add_argument('--app', action='store', type=str, required=False,
+	                    dest='app', nargs='+', default= None,
 	                    help='File dsa file1[,start1] [file2,[start2]] in s dsa.')
 	parser.add_argument('--outputFile', action='store', type=str,
 	                    default=None, dest='oFile',
 	                    help='The method used for retention of events.')
-	parser.add_argument('--app', action='store_true',
-	                    default=False, dest='app',
-	                    help='dsa .')
 
 	##################################################
 	# Feature
 	parser.add_argument('-v', '--verbose', action='store', type=int,
 					default=0, dest='verbose',
 					help='Level of verbosity.')
+	parser.add_argument('--headerProvider', action='store', type=str,
+					default=None, dest='headerProvider',
+					help='Specify which acquisition file will defines the header. If it '
+					     'is not defined, the header of the first file provided will be '
+					     ' used.')
 
 	return parser.parse_args()
 
@@ -63,31 +150,17 @@ def parserCreator():
 # main
 #########################################################################################
 if __name__ == "__main__":
-	# do stuff
 	args = parserCreator()
 
-	if args.oFile is None:
-		writerIO = sys.stdout.buffer
-	else:
-		writerIO = args.oFile
+	iFiles, startTime = parseAcqArguments(args)
 
-	# fileName = [file.split(",")[0] for file in args.acq]
-	fileName = []
-	startTime = []
-	for cFile in args.acq:
-		tmp = cFile.split(",")
-		fileName.append(tmp[0])
-		if len(tmp) > 2:
-			sys.exit("The number of information provided per file should be two at maximum. It is divided per commas")
-		elif len(tmp) == 2:
-			startTime.append(float(tmp[1]) * 1000)
-			print(startTime)
-		else:
-			startTime.append(0)
+	writerOutput = defineWriter(args.oFile, args.verbose)
+
+	sys.exit("Refactoring in process")
 
 	fileIO = []
 	allTimeInterval = []
-	for cF in fileName:
+	for cF in iFiles:
 		cFileIO = prd.BinaryPrdExperimentReader(cF)
 		header = cFileIO.read_header()
 		allTimeInterval.append(header.scanner.listmode_time_block_duration)
@@ -99,7 +172,7 @@ if __name__ == "__main__":
 		#
 		# dsa take care about diff header
 
-	with prd.BinaryPrdExperimentWriter(writerIO) as writer:
+	with prd.BinaryPrdExperimentWriter(writerOutput) as writer:
 		writer.write_header(header)
 		oTimeInterval = max(allTimeInterval)
 

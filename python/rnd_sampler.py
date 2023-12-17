@@ -17,11 +17,16 @@ TODO:
 #########################################################################################
 # Modules
 #########################################################################################
+# Basic python module
 import argparse
-import prd
 import random
 import sys
 from typing import Union
+
+# This project module
+import prd
+from prd.types import TimeBlock
+
 
 
 #########################################################################################
@@ -37,13 +42,15 @@ def defineWriter(oFile: Union[str, None], verbose: int):
 	else:
 		return oFile
 
-def sampleByTimeBlock(cTimeBlock, retFrac: float):
+
+def sampleByTimeBlock(cTimeBlock: TimeBlock, retFrac: float):
 	if random.random() < retFrac:
 		return (cTimeBlock,), None
 	else:
 		return None
 
-def sampleByEvent(cTimeBlock, retFrac: float):
+
+def sampleByEvent(cTimeBlock: TimeBlock, retFrac: float):
 	keptPrompt = []
 	for cPr in cTimeBlock.prompt_events:
 		if random.random() < retFrac:
@@ -63,7 +70,6 @@ def sampleByEvent(cTimeBlock, retFrac: float):
 
 	return (prd.TimeBlock(id=time_block.id, prompt_events=keptPrompt,
 								delayed_events=keptDelay),), stats
-
 
 
 def providBasicStat(verbose: int, randoMethod: str, nbTimeBlock: int,
@@ -87,7 +93,7 @@ def providBasicStat(verbose: int, randoMethod: str, nbTimeBlock: int,
 # Scripting functionnality
 #########################################################################################
 def parserCreator():
-	parser = argparse.ArgumentParser(description="Sample an anquisition file to produce "
+	parser = argparse.ArgumentParser(description="Sample an acquisition file to produce "
 	                "a new version of the acquisition with less statistics.")
 
 	##################################################
@@ -139,7 +145,7 @@ if __name__ == "__main__":
 
 	if args.randoMethod == "timeBlock":
 		sampler = lambda timeBlock: sampleByTimeBlock(timeBlock, args.retFrac)
-	elif args.randoMethod == "event":
+	else:
 		sampler = lambda timeBlock: sampleByEvent(timeBlock, args.retFrac)
 
 	with prd.BinaryPrdExperimentWriter(writerOutput) as writer:
