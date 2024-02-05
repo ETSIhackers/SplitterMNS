@@ -4,8 +4,8 @@
 """
 Goal of this module: Merge multiple acquisitions files into one file.
 
-Two modes are supported: (They cannot be used at the same time)
-	- Append time-wise:
+Two modes are supported: (They cannot be used at the same time right now)
+	- Append time-wise: (Not supported presently)
 		- The order of concatennation is determined by the order of the acquisitions
 		  files provided as argument.
 		- Start time are interpreted as time lapse between two acquisitions
@@ -13,16 +13,20 @@ Two modes are supported: (They cannot be used at the same time)
 	- Fusion time wise:
 		- The order of the acquisitions files provided as argument is irrevalent.
 		- The start time are interpreted in absolute. If they are not provided, it is
-		  assumed to start at 0 seconds.
-		- Currently, acquisitions with variable time step are not supported. A basic
-		  attempt is made to warn the user that the files provided are not supported.
+		  assumed to start at 0 ms.
 
+Limitations:
+    - Acquisitions with variable time step are not supported.
+    - It is assumed that the smallest time interval possible is 1 ms.
 
-merge -acq file1[;start1] [file2;[start2]]
+Assumptions:
+    - Empty time block do not need to be defined
+
+merge -acq file1[,start1] [file2,[start2]]
 TODO:
 	Core:
+		- Clean (qwe) and test the fuse mode
 		- Implement and test the append mode
-		- Implement and test the fuse mode
 		- Make the two mode work together?
 	Feature:
 		- Support nice time format
@@ -34,9 +38,10 @@ TODO:
 #########################################################################################
 # Basic python module
 import argparse
+from argparse import Namespace
+import random
 import sys
 from typing import Union, List
-from argparse import Namespace
 
 # This project module
 import prd
@@ -49,29 +54,29 @@ def parseAcqArguments(_args: Namespace):
     if _args.headerProvider is not None:
         sys.exit("The option --headProvider is currently not supported.")
 
-    if _args.fuse is None and _args.app is None:
+    if _args.merge is None and _args.app is None:
         sys.exit("The script requires the use of one of the two modes (fuse vs app).")
 
-    if _args.fuse is not None and _args.app is not None:
+    if _args.merge is not None and _args.app is not None:
         sys.exit(
             "The script currently only work with one of the two modes (fuse vs "
             "app) activated."
         )
 
     mergeInfos = []
-    if _args.fuse is not None:
-        mergeInfos = _args.fuse
-        if len(_args.fuse) < 2:
+    if _args.merge is not None:
+        mergeInfos = _args.merge
+        if len(_args.merge) < 2:
             sys.exit("At least two files are required for the fuse feature.")
 
     if _args.app is not None:
         mergeInfos = _args.app
-        if len(_args.fuse) < 2:
+        if len(_args.merge) < 2:
             sys.exit("At least two files are required for the fuse feature.")
 
     acqPaths, startTime = extractMergeInfo(mergeInfos)
 
-    # TODO: sanity check existance prior starting
+    # TODO: sanity check existance of input/output files prior starting
 
     return acqPaths, startTime
 
@@ -81,14 +86,15 @@ def extractMergeInfo(_mergeInfos: List[str]):
     startTime = []
 
     for cFile in _mergeInfos:
-        if cFile.find(";") == -1:
+        if cFile.find(",") == -1:
             cAcqPath = cFile
             cStartTime = 0
         else:
-            cAcqPath, cStartTime = cFile.split(";")
+            cAcqPath, cStartTime = cFile.split(",")
             # Since we currently assume user always provide in seconds and that the
             # acquisitions files are in milli-seconds.
-            cStartTime = float(cStartTime) * 1000.0
+            # assuming smallest is ms
+            cStartTime = int(float(cStartTime) * 1000)
         acqPaths.append(cAcqPath)
         startTime.append(cStartTime)
 
@@ -113,20 +119,20 @@ def defineWriter(oFile: Union[str, None], verbose: int):
 #########################################################################################
 def parserCreator():
     parser = argparse.ArgumentParser(
-        description="Merge multiple acquisitions files " "in a single file. "
+        description="Merge multiple acquisitions files in a single file. The argument format for append/merge is file1[,start1] [file2,[start2]] [file3,[start3]]"
     )
 
     ##################################################
     # Basic
     parser.add_argument(
-        "--fuse",
+        "--merge",
         action="store",
         type=str,
         required=False,
-        dest="fuse",
+        dest="merge",
         nargs="+",
         default=None,
-        help="File dsa file1[,start1] [file2,[start2]] in s dsa.",
+        help="Acquisition files to merge. Start time are in seconds and ther are interpreted in absolute.",
     )
     parser.add_argument(
         "--app",
@@ -136,7 +142,7 @@ def parserCreator():
         dest="app",
         nargs="+",
         default=None,
-        help="File dsa file1[,start1] [file2,[start2]] in s dsa.",
+        help="Acquisition files to append. Start time and in seconds and they are interpreted in relative to the end time of the last acquisition.",
     )
     parser.add_argument(
         "--outputFile",
@@ -168,6 +174,14 @@ def parserCreator():
         "is not defined, the header of the first file provided will be "
         " used.",
     )
+    parser.add_argument(
+        "-s",
+        "--shuffleEvents",
+        action="store_true",
+        default=False,
+        dest="shuffleEvents",
+        help="Shuffle the events in time block that are merged.",
+    )
 
     return parser.parse_args()
 
@@ -184,95 +198,88 @@ def parserCreator():
 if __name__ == "__main__":
     args = parserCreator()
 
+    if args.app is not None:
+        sys.exit("Append mode is not implemented yet")
+
     iFiles, startTime = parseAcqArguments(args)
 
     writerOutput = defineWriter(args.oFile, args.verbose)
 
+    # qwe create a method for preparation
     fileIO = []
     allTimeInterval = []
-    for cF in iFiles:
+    for i, cF in enumerate(iFiles):
         cFileIO = prd.BinaryPrdExperimentReader(cF)
         header = cFileIO.read_header()
+        if (i == 0) and (args.headerProvider == None):
+            oHeader = header
         allTimeInterval.append(header.scanner.listmode_time_block_duration)
         fileIO.append(cFileIO.read_time_blocks())
-        #
-        # fileIO.append(prd.BinaryPrdExperimentReader(cF))
-        # header = fileIO[-1].read_header()
-        # allTimeInterval.append(header.scanner.listmode_time_block_duration)
-        #
-        # dsa take care about diff header
-    sys.exit("Refactoring in process")
+    if len(set(allTimeInterval)) != 1:
+        sys.exit(
+            f"This script does not support variable time block size. The time block are {allTimeInterval}."
+        )
+    else:
+        # Convert startime from ID of ms to ID of time interval of the files
+        startTime = [int(cStartTime * allTimeInterval[0]) for cStartTime in startTime]
+    print(startTime)
 
+    if args.headerProvider is not None:
+        oHeader = prd.BinaryPrdExperimentReader(args.headerProvider).read_header()
+
+    # Create a method for the merge case
+    # Merge case
+    mFileNextTimeBlock = []
+    timeBlockBuffer = []
+    for i, cFileIO in enumerate(fileIO):
+        fTimeBlock = next(cFileIO)
+        mFileNextTimeBlock.append(fTimeBlock.id + startTime[i])
+        timeBlockBuffer.append(fTimeBlock)
+
+    cTime = min(mFileNextTimeBlock)
     with prd.BinaryPrdExperimentWriter(writerOutput) as writer:
-        writer.write_header(header)
-        oTimeInterval = max(allTimeInterval)
-
-        oCurrTime = 0
-
-        future = oCurrTime + oTimeInterval
-        filesBuffer = []
+        writer.write_header(oHeader)
 
         while True:
-            for i, cFIO in enumerate(fileIO):
-                if cFIO is not None:
-                    # while filesBuffer[i] is None:
-                    while True:
-                        try:
-                            cTB = next(cFIO)
-                        except StopIteration:
-                            fileIO[i] = None
-                            break
-
-                        if future > cTB.id * allTimeInterval[i] + startTime[i]:
-                            filesBuffer.append(cTB)
-                        else:
-                            break
-
-            if len(filesBuffer) != 0:
-                oPrompt = []
-                oDelay = []
-                for cTb in filesBuffer:
-                    oPrompt += cTb.prompt_events
-                    if cTb.delayed_events is not None:
-                        oDelay += cTb.delayed_events
-                if len(oDelay) == 0:
-                    oDelay = None
-                oCurrTB = prd.TimeBlock(
-                    id=int(oCurrTime), prompt_events=oPrompt, delayed_events=oDelay
-                )
-                writer.write_time_blocks((oCurrTB,))
+            print(cTime)
+            cPrompts = []
+            cDelays = []
+            nbMerged = 0
+            removeFile = []
+            for i in range(len(mFileNextTimeBlock)):
+                if mFileNextTimeBlock[i] <= cTime:
+                    cTimeBlock = timeBlockBuffer[i]
+                    cPrompts.extend(cTimeBlock.prompt_events)
+                    if cTimeBlock.delayed_events is not None:
+                        cDelays.extend(cTimeBlock.delayed_events)
+                    nbMerged += 1
+                    # Update info
+                    try:
+                        timeBlockBuffer[i] = next(fileIO[i])
+                        mFileNextTimeBlock[i] = timeBlockBuffer[i].id + startTime[i]
+                    except StopIteration:
+                        removeFile.append(i)
+            if nbMerged > 1 and args.shuffleEvents:
+                random.shuffle(cPrompts)
+            if len(cDelays) == 0:
+                cDelays = None
             else:
+                if nbMerged > 1 and args.shuffleEvents:
+                    random.shuffle(cPrompts)
+
+            mTimeBlock = (
+                prd.TimeBlock(id=cTime, prompt_events=cPrompts, delayed_events=cDelays),
+            )
+            writer.write_time_blocks(mTimeBlock)
+
+            if len(removeFile) != 0:
+                # Pop in reverse order to not break anything
+                for cPos in removeFile[::-1]:
+                    fileIO.pop(cPos)
+                    mFileNextTimeBlock.pop(cPos)
+                    timeBlockBuffer.pop(cPos)
+                    startTime.pop(cPos)
+            if len(fileIO) == 0:
                 break
-
-            oCurrTime += oTimeInterval
-            future += oTimeInterval
-
-    # print(fileName)
-    # print(startTime)
-
-    # future = oCurrTime + oTimeInterval
-    # stillThingToProcesss = True
-    # filesBuffer = len(allTimeInterval) * [None,]
-
-    # while stillThingToProcesss:
-    # 	for i, cFIO in enumerate(fileIO):
-    # 		if filesBuffer[i] is not None:
-    # 			if future > filesBuffer[i].id * allTimeInterval[i] + startTime[i]:
-    # 				writer.write_time_blocks((filesBuffer[i],))
-    # 				filesBuffer[i] = None
-    # 			else:
-    # 				break
-    # 		if cFIO is not None:
-    # 			while filesBuffer[i] is None:
-    # 				try:
-    # 					cTB = next(cFIO)
-    # 				except StopIteration:
-    # 					fileIO[i] = None
-    # 					break
-
-    # 				if future > cTB.id * allTimeInterval[i] + startTime[i]:
-    # 					writer.write_time_blocks((cTB,))
-    # 				else:
-    # 					filesBuffer[i] = copy.deepcopy(cTB)
-
-    # 	future += oTimeInterval
+            else:
+                cTime = min(mFileNextTimeBlock)
