@@ -51,15 +51,12 @@ import prd
 # Function
 #########################################################################################
 def parseAcqArguments(_args: Namespace):
-    if _args.headerProvider is not None:
-        sys.exit("The option --headProvider is currently not supported.")
-
     if _args.merge is None and _args.app is None:
-        sys.exit("The script requires the use of one of the two modes (fuse vs app).")
+        sys.exit("The script requires the use of one of the two modes (merge vs app).")
 
     if _args.merge is not None and _args.app is not None:
         sys.exit(
-            "The script currently only work with one of the two modes (fuse vs "
+            "The script currently only work with one of the two modes (merge vs "
             "app) activated."
         )
 
@@ -132,7 +129,7 @@ def parserCreator():
         dest="merge",
         nargs="+",
         default=None,
-        help="Acquisition files to merge. Start time are in seconds and ther are interpreted in absolute.",
+        help="Acquisition files to merge. Start time are in seconds and they are interpreted in absolute.",
     )
     parser.add_argument(
         "--app",
@@ -222,7 +219,6 @@ if __name__ == "__main__":
     else:
         # Convert startime from ID of ms to ID of time interval of the files
         startTime = [int(cStartTime * allTimeInterval[0]) for cStartTime in startTime]
-    print(startTime)
 
     if args.headerProvider is not None:
         oHeader = prd.BinaryPrdExperimentReader(args.headerProvider).read_header()
@@ -241,7 +237,6 @@ if __name__ == "__main__":
         writer.write_header(oHeader)
 
         while True:
-            print(cTime)
             cPrompts = []
             cDelays = []
             nbMerged = 0
