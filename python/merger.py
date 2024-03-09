@@ -63,13 +63,11 @@ def parseAcqArguments(_args: Namespace):
     mergeInfos = []
     if _args.merge is not None:
         mergeInfos = _args.merge
-        if len(_args.merge) < 2:
-            sys.exit("At least two files are required for the fuse feature.")
-
-    if _args.app is not None:
+    else:
         mergeInfos = _args.app
-        if len(_args.merge) < 2:
-            sys.exit("At least two files are required for the fuse feature.")
+
+    if len(mergeInfos) < 2:
+        sys.exit("At least two files are required for the merge feature.")
 
     acqPaths, startTime = extractMergeInfo(mergeInfos)
 
@@ -196,7 +194,9 @@ if __name__ == "__main__":
     args = parserCreator()
 
     if args.app is not None:
-        sys.exit("Append mode is not implemented yet")
+        relMode = True
+    else:
+        relMode = False
 
     iFiles, startTime = parseAcqArguments(args)
 
@@ -212,9 +212,10 @@ if __name__ == "__main__":
             oHeader = header
         allTimeInterval.append(header.scanner.listmode_time_block_duration)
         fileIO.append(cFileIO.read_time_blocks())
+
     if len(set(allTimeInterval)) != 1:
         sys.exit(
-            f"This script does not support variable time block size. The time block are {allTimeInterval}."
+            f"This script does not support variable time block size. The time blocks are {allTimeInterval}."
         )
     else:
         # Convert startime from ID of ms to ID of time interval of the files
@@ -232,16 +233,22 @@ if __name__ == "__main__":
         mFileNextTimeBlock.append(fTimeBlock.id + startTime[i])
         timeBlockBuffer.append(fTimeBlock)
 
-    cTime = min(mFileNextTimeBlock)
+    if relMode:
+        cTime = mFileNextTimeBlock[0]
+    else:
+        cTime = min(mFileNextTimeBlock)
     with prd.BinaryPrdExperimentWriter(writerOutput) as writer:
         writer.write_header(oHeader)
-
         while True:
             cPrompts = []
             cDelays = []
             nbMerged = 0
             removeFile = []
-            for i in range(len(mFileNextTimeBlock)):
+            if relMode:
+                nbValidFileIO = 1
+            else:
+                nbValidFileIO = len(mFileNextTimeBlock)
+            for i in range(nbValidFileIO):
                 if mFileNextTimeBlock[i] <= cTime:
                     cTimeBlock = timeBlockBuffer[i]
                     cPrompts.extend(cTimeBlock.prompt_events)
@@ -260,7 +267,7 @@ if __name__ == "__main__":
                 cDelays = None
             else:
                 if nbMerged > 1 and args.shuffleEvents:
-                    random.shuffle(cPrompts)
+                    random.shuffle(cDelays)
 
             mTimeBlock = (
                 prd.TimeBlock(id=cTime, prompt_events=cPrompts, delayed_events=cDelays),
@@ -271,10 +278,18 @@ if __name__ == "__main__":
                 # Pop in reverse order to not break anything
                 for cPos in removeFile[::-1]:
                     fileIO.pop(cPos)
-                    mFileNextTimeBlock.pop(cPos)
+                    endTime = mFileNextTimeBlock.pop(cPos)
                     timeBlockBuffer.pop(cPos)
                     startTime.pop(cPos)
+                if relMode and len(startTime) != 0:
+                    # Since the current file is finished, we now know its endtime and
+                    # can adjust the start time of the other parts in consequence
+                    startTime = [cStartTime + endTime for cStartTime in startTime]
+            # If any file are remaining, get the next time block ID
             if len(fileIO) == 0:
                 break
             else:
-                cTime = min(mFileNextTimeBlock)
+                if relMode:
+                    cTime = mFileNextTimeBlock[0]
+                else:
+                    cTime = min(mFileNextTimeBlock)
