@@ -45,6 +45,7 @@ from typing import Union, List
 
 # This project module
 import prd
+from prd.types import CoincidenceEvent
 
 
 #########################################################################################
@@ -107,6 +108,60 @@ def defineWriter(oFile: Union[str, None], verbose: int):
         return sys.stdout.buffer
     else:
         return oFile
+
+
+def setupFileIO(
+    _iFiles: List[str], _startTime: List[int], _headerProvider: Union[str, None]
+):
+    fileIO = []
+    allTimeInterval = []
+    for i, cF in enumerate(_iFiles):
+        cFileIO = prd.BinaryPrdExperimentReader(cF)
+        header = cFileIO.read_header()
+        if i == 0:
+            firstHeader = header
+        allTimeInterval.append(header.scanner.listmode_time_block_duration)
+        fileIO.append(cFileIO.read_time_blocks())
+
+    if len(set(allTimeInterval)) != 1:
+        sys.exit(
+            f"This script does not support variable time block size. The time blocks are {allTimeInterval}."
+        )
+    # Convert startime from ms to ID of time interval of the files
+    startTimeBlockId = [
+        int(cStartTime * allTimeInterval[0]) for cStartTime in _startTime
+    ]
+
+    if _headerProvider is not None:
+        oHeader = prd.BinaryPrdExperimentReader(_headerProvider).read_header()
+    else:
+        oHeader = firstHeader
+
+    return fileIO, startTimeBlockId, oHeader
+
+
+def createTimeBlock(
+    _cTime: int,
+    _cPrompts: List[CoincidenceEvent],
+    _cDelays: List[CoincidenceEvent],
+    _nbMerged: int,
+    _shuffleEvents: bool,
+):
+    if _nbMerged > 1 and _shuffleEvents:
+        random.shuffle(_cPrompts)
+
+    if len(_cDelays) == 0:
+        cDelays = None
+    else:
+        cDelays = _cDelays
+        if _nbMerged > 1 and _shuffleEvents:
+            random.shuffle(cDelays)
+
+    mTimeBlock = (
+        prd.TimeBlock(id=_cTime, prompt_events=_cPrompts, delayed_events=cDelays),
+    )
+
+    return mTimeBlock
 
 
 #########################################################################################
@@ -194,49 +249,22 @@ if __name__ == "__main__":
     args = parserCreator()
 
     if args.app is not None:
+        # When appending, start time is relative.
         relMode = True
     else:
         relMode = False
 
     iFiles, startTime = parseAcqArguments(args)
-
     writerOutput = defineWriter(args.oFile, args.verbose)
+    fileIO, sTimeBlockId, oHeader = setupFileIO(iFiles, startTime, args.headerProvider)
 
-    # qwe create a method for preparation
-    fileIO = []
-    allTimeInterval = []
-    for i, cF in enumerate(iFiles):
-        cFileIO = prd.BinaryPrdExperimentReader(cF)
-        header = cFileIO.read_header()
-        if (i == 0) and (args.headerProvider == None):
-            oHeader = header
-        allTimeInterval.append(header.scanner.listmode_time_block_duration)
-        fileIO.append(cFileIO.read_time_blocks())
-
-    if len(set(allTimeInterval)) != 1:
-        sys.exit(
-            f"This script does not support variable time block size. The time blocks are {allTimeInterval}."
-        )
-    else:
-        # Convert startime from ID of ms to ID of time interval of the files
-        startTime = [int(cStartTime * allTimeInterval[0]) for cStartTime in startTime]
-
-    if args.headerProvider is not None:
-        oHeader = prd.BinaryPrdExperimentReader(args.headerProvider).read_header()
-
-    # Create a method for the merge case
-    # Merge case
     mFileNextTimeBlock = []
     timeBlockBuffer = []
     for i, cFileIO in enumerate(fileIO):
         fTimeBlock = next(cFileIO)
-        mFileNextTimeBlock.append(fTimeBlock.id + startTime[i])
+        mFileNextTimeBlock.append(fTimeBlock.id + sTimeBlockId[i])
         timeBlockBuffer.append(fTimeBlock)
 
-    if relMode:
-        cTime = mFileNextTimeBlock[0]
-    else:
-        cTime = min(mFileNextTimeBlock)
     with prd.BinaryPrdExperimentWriter(writerOutput) as writer:
         writer.write_header(oHeader)
         while True:
@@ -244,11 +272,15 @@ if __name__ == "__main__":
             cDelays = []
             nbMerged = 0
             removeFile = []
+
             if relMode:
-                nbValidFileIO = 1
+                cTime = mFileNextTimeBlock[0]
+                nbInputCandidates = 1
             else:
-                nbValidFileIO = len(mFileNextTimeBlock)
-            for i in range(nbValidFileIO):
+                cTime = min(mFileNextTimeBlock)
+                nbInputCandidates = len(mFileNextTimeBlock)
+
+            for i in range(nbInputCandidates):
                 if mFileNextTimeBlock[i] <= cTime:
                     cTimeBlock = timeBlockBuffer[i]
                     cPrompts.extend(cTimeBlock.prompt_events)
@@ -258,19 +290,12 @@ if __name__ == "__main__":
                     # Update info
                     try:
                         timeBlockBuffer[i] = next(fileIO[i])
-                        mFileNextTimeBlock[i] = timeBlockBuffer[i].id + startTime[i]
+                        mFileNextTimeBlock[i] = timeBlockBuffer[i].id + sTimeBlockId[i]
                     except StopIteration:
                         removeFile.append(i)
-            if nbMerged > 1 and args.shuffleEvents:
-                random.shuffle(cPrompts)
-            if len(cDelays) == 0:
-                cDelays = None
-            else:
-                if nbMerged > 1 and args.shuffleEvents:
-                    random.shuffle(cDelays)
 
-            mTimeBlock = (
-                prd.TimeBlock(id=cTime, prompt_events=cPrompts, delayed_events=cDelays),
+            mTimeBlock = createTimeBlock(
+                cTime, cPrompts, cDelays, nbMerged, args.shuffleEvents
             )
             writer.write_time_blocks(mTimeBlock)
 
@@ -280,16 +305,12 @@ if __name__ == "__main__":
                     fileIO.pop(cPos)
                     endTime = mFileNextTimeBlock.pop(cPos)
                     timeBlockBuffer.pop(cPos)
-                    startTime.pop(cPos)
-                if relMode and len(startTime) != 0:
+                    sTimeBlockId.pop(cPos)
+
+                if relMode and len(sTimeBlockId) != 0:
                     # Since the current file is finished, we now know its endtime and
                     # can adjust the start time of the other parts in consequence
-                    startTime = [cStartTime + endTime for cStartTime in startTime]
+                    sTimeBlockId = [cStartTime + endTime for cStartTime in sTimeBlockId]
             # If any file are remaining, get the next time block ID
             if len(fileIO) == 0:
                 break
-            else:
-                if relMode:
-                    cTime = mFileNextTimeBlock[0]
-                else:
-                    cTime = min(mFileNextTimeBlock)
