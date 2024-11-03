@@ -44,8 +44,8 @@ import sys
 from typing import Union, List
 
 # This project module
-import prd
-from prd.types import CoincidenceEvent
+import petsird
+from petsird.types import CoincidenceEvent
 
 
 #########################################################################################
@@ -116,7 +116,7 @@ def setupFileIO(
     fileIO = []
     allTimeInterval = []
     for i, cF in enumerate(_iFiles):
-        cFileIO = prd.BinaryPrdExperimentReader(cF)
+        cFileIO = petsird.BinaryPETSIRDReader(cF)
         header = cFileIO.read_header()
         if i == 0:
             firstHeader = header
@@ -133,7 +133,7 @@ def setupFileIO(
     ]
 
     if _headerProvider is not None:
-        oHeader = prd.BinaryPrdExperimentReader(_headerProvider).read_header()
+        oHeader = petsird.BinaryPETSIRDReader(_headerProvider).read_header()
     else:
         oHeader = firstHeader
 
@@ -158,7 +158,7 @@ def createTimeBlock(
             random.shuffle(cDelays)
 
     mTimeBlock = (
-        prd.TimeBlock(id=_cTime, prompt_events=_cPrompts, delayed_events=cDelays),
+        petsird.TimeBlock(id=_cTime, prompt_events=_cPrompts, delayed_events=cDelays),
     )
 
     return mTimeBlock
@@ -265,7 +265,7 @@ if __name__ == "__main__":
         mFileNextTimeBlock.append(fTimeBlock.id + sTimeBlockId[i])
         timeBlockBuffer.append(fTimeBlock)
 
-    with prd.BinaryPrdExperimentWriter(writerOutput) as writer:
+    with petsird.BinaryPETSIRDWriter(writerOutput) as writer:
         writer.write_header(oHeader)
         while True:
             cPrompts = []

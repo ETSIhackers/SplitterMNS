@@ -11,7 +11,7 @@ endif()
 
 # Example lines for a new executable
 # add_executable(my_prog my_prog.cpp)
-# target_link_libraries(my_prog PUBLIC prd_generated)
+# target_link_libraries(my_prog PUBLIC petsird_generated)
 # install(TARGETS my_prog DESTINATION bin)
 
 add_subdirectory(../PETSIRD/cpp/generated PETSIRD_generated)
