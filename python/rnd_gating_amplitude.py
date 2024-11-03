@@ -14,7 +14,7 @@ import sys
 sys.path.append("../PETSIRD/python/")
 import math
 import numpy as np
-import prd
+import petsird
 
 
 # function to open a csv file and read time stamps (first column) and physio_1_amplitude (second column) and return them into two arrays (time_stamps, physio_1_amplitude)
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     minimum_physio_1_amplitude = float(sys.argv[3])
     maximum_physio_1_amplitude = float(sys.argv[4])
     # read the input file
-    reader = prd.BinaryPrdExperimentReader(input_file)
+    reader = petsird.BinaryPETSIRDReader(input_file)
     header = reader.read_header()
     # temporary print statements to check the header
     print(f"Subject ID: {header.exam.subject.id}")
@@ -72,13 +72,13 @@ if __name__ == "__main__":
     time_stamp_counter = 0
     # initiallize the writer. we open the generalized "writers" as a dynamic system that can change with the number of gates provided by the user
     writers = [
-        prd.BinaryPrdExperimentWriter(f"gate_physio_1_{i}.raw")
+        petsird.BinaryPETSIRDWriter(f"gate_physio_1_{i}.raw")
         for i in range(0, number_of_gates)
     ]
     for writer_gate in writers:
         writer_gate.write_header(header)
 
-    # writer = prd.BinaryPrdExperimentWriter("test.raw")
+    # writer = petsird.BinaryPETSIRDWriter("test.raw")
     # writer.write_header(header)
 
     # get all the time blocks and for each one, get the events

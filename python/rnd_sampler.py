@@ -24,8 +24,8 @@ import sys
 from typing import Union
 
 # This project module
-import prd
-from prd.types import TimeBlock
+import petsird
+from petsird.types import TimeBlock
 
 
 
@@ -68,7 +68,7 @@ def sampleByEvent(cTimeBlock: TimeBlock, retFrac: float):
 
 	stats = (len(keptPrompt), nbKeptDelay)
 
-	return (prd.TimeBlock(id=time_block.id, prompt_events=keptPrompt,
+	return (petsird.TimeBlock(id=time_block.id, prompt_events=keptPrompt,
 								delayed_events=keptDelay),), stats
 
 
@@ -148,8 +148,8 @@ if __name__ == "__main__":
 	else:
 		sampler = lambda timeBlock: sampleByEvent(timeBlock, args.retFrac)
 
-	with prd.BinaryPrdExperimentWriter(writerOutput) as writer:
-		reader = prd.BinaryPrdExperimentReader(args.acq)
+	with petsird.BinaryPETSIRDWriter(writerOutput) as writer:
+		reader = petsird.BinaryPETSIRDReader(args.acq)
 		header = reader.read_header()
 		writer.write_header(header)
 
@@ -182,5 +182,5 @@ if __name__ == "__main__":
 	# If the list mode is empty, we still create a valid list mode
 	if (nbTimeBlockKept == 0) and (nbPromptKept == 0):
 		print("Warning: No prompt or time block were preserved")
-		tmp = (prd.TimeBlock(id=0, prompt_events=[]), )
+		tmp = (petsird.TimeBlock(id=0, prompt_events=[]), )
 		writer.write_time_blocks(tmp)

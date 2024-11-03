@@ -13,7 +13,7 @@ used to read the specification (in the `model` directory) and generate an PI for
 
 This use case was started at the start of November 2023 from a draft model of PETSIRD which is defined in https://github.com/ETSInitiative/PRDdefinition.
 
-CAVEAT: the draft model generates code in the `prd` namespace. Nevertheless, we have used the name PETSIRD here
+CAVEAT: the draft model generates code in the `petsird` namespace. Nevertheless, we have used the name PETSIRD here
 in most places (except where needed).
 
 ## Current capabilities
