@@ -25,8 +25,8 @@ from typing import Union
 
 # This project module
 import petsird
-from petsird.types import TimeBlock
-
+#from petsird.types import TimeBlock
+from petsird.types import *
 
 
 #########################################################################################
@@ -52,13 +52,13 @@ def sampleByTimeBlock(cTimeBlock: TimeBlock, retFrac: float):
 
 def sampleByEvent(cTimeBlock: TimeBlock, retFrac: float):
 	keptPrompt = []
-	for cPr in cTimeBlock.prompt_events:
+	for cPr in cTimeBlock.value.prompt_events:
 		if random.random() < retFrac:
 			keptPrompt.append(cPr)
 
-	if cTimeBlock.delayed_events is not None:
+	if cTimeBlock.value.delayed_events is not None:
 		keptDelay = []
-		for cDl in cTimeBlock.delayed_events:
+		for cDl in cTimeBlock.value.delayed_events:
 			if random.random() < retFrac:
 				keptDelay.append(cDl)
 		nbKeptDelay = len(keptDelay)
@@ -68,17 +68,17 @@ def sampleByEvent(cTimeBlock: TimeBlock, retFrac: float):
 
 	stats = (len(keptPrompt), nbKeptDelay)
 
-	return (petsird.TimeBlock(id=time_block.id, prompt_events=keptPrompt,
-								delayed_events=keptDelay),), stats
+	return (petsird.TimeBlock.EventTimeBlock(petsird.EventTimeBlock(start=time_block.value.start, prompt_events=keptPrompt,
+								delayed_events=keptDelay),),), stats
 
 
-def providBasicStat(verbose: int, randoMethod: str, nbTimeBlock: int,
-	                nbTimeBlockKept: int, nbPrompt: int, nbPromptKept: int, nbDelay: int,
+def providBasicStat(verbose: int, randoMethod: str, nbEventTimeBlock: int,
+	                nbEventTimeBlockKept: int, nbPrompt: int, nbPromptKept: int, nbDelay: int,
 	                nbDelayKept: int):
 
-	if verbose > 0 and randoMethod == "timeBlock":
-		print(f"Number of time block kept {nbTimeBlockKept} out of {nbTimeBlock}. " +
-				f"In percent: {(nbTimeBlockKept / nbTimeBlock) * 100.0}%")
+	if verbose > 0 and randoMethod == "TimeBlock":
+		print(f"Number of time block kept {nbEventTimeBlockKept} out of {nbEventTimeBlock}. " +
+				f"In percent: {(nbEventTimeBlockKept / nbEventTimeBlock) * 100.0}%")
 
 	if verbose > 0 and randoMethod == "event":
 		print(f"Number of prompt kept {nbPromptKept} out of {nbPrompt}. " +
@@ -144,9 +144,9 @@ if __name__ == "__main__":
 	writerOutput = defineWriter(args.oFile, args.verbose)
 
 	if args.randoMethod == "timeBlock":
-		sampler = lambda timeBlock: sampleByTimeBlock(timeBlock, args.retFrac)
+		sampler = lambda TimeBlock: sampleByTimeBlock(TimeBlock, args.retFrac)
 	else:
-		sampler = lambda timeBlock: sampleByEvent(timeBlock, args.retFrac)
+		sampler = lambda TimeBlock: sampleByEvent(TimeBlock, args.retFrac)
 
 	with petsird.BinaryPETSIRDWriter(writerOutput) as writer:
 		reader = petsird.BinaryPETSIRDReader(args.acq)
@@ -161,20 +161,26 @@ if __name__ == "__main__":
 		nbDelay = 0
 		nbDelayKept = 0
 		for tbID, time_block in enumerate(reader.read_time_blocks()):
-			nbTimeBlock += 1
-			nbPrompt += len(time_block.prompt_events)
-			if time_block.delayed_events is not None:
-				nbDelay += len(time_block.delayed_events)
+			#print(type(time_block))
+			if isinstance(time_block, petsird.TimeBlock.EventTimeBlock):
+				#	print("IS_A_TIMEBLOCK")
+				nbTimeBlock += 1
+				nbPrompt += len(time_block.value.prompt_events)
+				if time_block.value.delayed_events is not None:
+					nbDelay += len(time_block.value.delayed_events)
 
-			res = sampler(time_block)
-			if res is not None:
-				resTimeBlock, stats = res
-				writer.write_time_blocks(resTimeBlock)
-				if args.randoMethod == "timeBlock":
-					nbTimeBlockKept += 1
-				elif args.randoMethod == "event":
-					nbPromptKept += stats[0]
-					nbDelayKept += stats[1]
+				res = sampler(time_block)
+				if res is not None:
+					resTimeBlock, stats = res
+					writer.write_time_blocks(resTimeBlock)
+					if args.randoMethod == "timeBlock":
+						nbTimeBlockKept += 1
+					elif args.randoMethod == "event":
+						nbPromptKept += stats[0]
+						nbDelayKept += stats[1]
+			else:
+				writer.write_time_blocks(time_block)
+
 
 	providBasicStat(args.verbose, args.randoMethod, nbTimeBlock, nbTimeBlockKept,
 					nbPrompt, nbPromptKept, nbDelay, nbDelayKept)
@@ -182,5 +188,6 @@ if __name__ == "__main__":
 	# If the list mode is empty, we still create a valid list mode
 	if (nbTimeBlockKept == 0) and (nbPromptKept == 0):
 		print("Warning: No prompt or time block were preserved")
-		tmp = (petsird.TimeBlock(id=0, prompt_events=[]), )
+#		tmp = (petsird.EventTimeBlock(id=0, prompt_events=[]), )
+		tmp = (petsird.TimeBlock.EventTimeBlock(petsird.EventTimeBlock(start=0, prompt_events=[],),),)
 		writer.write_time_blocks(tmp)
