@@ -1,7 +1,7 @@
 # date: 2025-07-17
 # Author: Georgios Soultanidis
 # Affiliation: BMEII, Icahn School of Medicine at Mount Sinai
-# version: 0.2
+# version: 0.3
 
 # The functionality of this script is to append physiological signals (e.g., ECG) to a PETSIRD file.
 # you have to provide a PETSIRD file and a CSV file with two columns: [start_time_ms, value].
@@ -21,8 +21,17 @@ import petsird
 import pandas as pd
 import argparse
 
+# Define signal type mapping
+signal_type_map = {
+    "ecg_trace": petsird.ExternalSignalTypeEnum.ECG_TRACE,
+    "ecg_trigger": petsird.ExternalSignalTypeEnum.ECG_TRIGGER,
+    "resp_trace": petsird.ExternalSignalTypeEnum.RESP_TRACE,
+    "resp_trigger": petsird.ExternalSignalTypeEnum.RESP_TRIGGER,
+    "other": petsird.ExternalSignalTypeEnum.OTHER,
+    "other_motion_signal": petsird.ExternalSignalTypeEnum.OTHER_MOTION_SIGNAL,
+    "other_motion_trigger": petsird.ExternalSignalTypeEnum.OTHER_MOTION_TRIGGER,
+}
 
-# Define input and output files
 def parserCreator():
     parser = argparse.ArgumentParser(
         prog="append_physio",
@@ -41,17 +50,30 @@ def parserCreator():
         required=True,
         help="Physiological data file (CSV with start_time_ms,value)",
     )
+    parser.add_argument(
+        "-t",
+        "--signal-type",
+        type=str,
+        default="other_motion_signal",
+        help=f"Signal type to use. Options: {', '.join(signal_type_map.keys())}",
+    )
     return parser.parse_args()
 
 
 args = parserCreator()
+
+# Validate signal type
+signal_type_key = args.signal_type.lower()
+if signal_type_key not in signal_type_map:
+    raise ValueError(f"Invalid signal type: {signal_type_key}. Valid options are: {list(signal_type_map.keys())}")
+signal_enum = signal_type_map[signal_type_key]
 
 # Read CSV with two columns: [start_time_ms, value]
 df = pd.read_csv(args.physio, header=None)
 starts_ms = df.iloc[:, 0].astype(int).values
 values = df.iloc[:, 1].astype(int).values
 
-ecg_id = 1  # must be unique and consistent with your data
+physio_id = 1  # must be unique and consistent with your data
 
 # Open reader and writer
 with petsird.BinaryPETSIRDReader(args.input) as reader, open(
@@ -61,13 +83,13 @@ with petsird.BinaryPETSIRDReader(args.input) as reader, open(
     # Read and modify header
     header = reader.read_header()
 
-    if not any(sig.id == ecg_id for sig in header.exam.external_signals):
-        ecg_signal = petsird.ExternalSignal(
-            type=petsird.ExternalSignalTypeEnum.ECG_TRIGGER,
-            description="ECG signal from CSV (2-column format)",
-            id=ecg_id,
+    if not any(sig.id == physio_id for sig in header.exam.external_signals):
+        physio_signal = petsird.ExternalSignal(
+            type=signal_enum,
+            description="Signal from CSV (2-column format)",
+            id=physio_id,
         )
-        header.exam.external_signals.append(ecg_signal)
+        header.exam.external_signals.append(physio_signal)
 
     # Write modified header
     writer.write_header(header)
@@ -79,11 +101,11 @@ with petsird.BinaryPETSIRDReader(args.input) as reader, open(
     # Inject one ExternalSignalTimeBlock per row
     for t_ms, val in zip(starts_ms, values):
         time_interval = petsird.TimeInterval(start=int(t_ms), stop=int(t_ms + 1))
-        ecg_block = petsird.ExternalSignalTimeBlock(
+        physio_block = petsird.ExternalSignalTimeBlock(
             time_interval=time_interval,
-            signal_id=ecg_id,
+            signal_id=physio_id,
             signal_values=[val],
         )
         writer.write_time_blocks(
-            (petsird.TimeBlock.ExternalSignalTimeBlock(ecg_block),)
+            (petsird.TimeBlock.ExternalSignalTimeBlock(physio_block),)
         )
