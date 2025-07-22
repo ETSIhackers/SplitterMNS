@@ -9,7 +9,9 @@
 # which will be appended to the PETSIRD file.
 # The output will be a new PETSIRD file with the appended physiological signals.
 
-# TODO: implement a way to select the type of physiological signal (e.g., ECG, respiratory, triggers, etc.)
+# TODO: Right now, the id of the physiological signal is hardcoded to 1.
+# You may want to change this if you have multiple physiological signals. 
+
 
 #the way to run this script is:
 # python append_physio.py -i input.petsird -o output.petsird -p physio.csv
