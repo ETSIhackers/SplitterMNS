@@ -56,6 +56,7 @@ def parserCreator():
         "-t",
         "--signal-type",
         type=str,
+        required=True,
         default="other_motion_signal",
         help=f"Signal type to use. Options: {', '.join(signal_type_map.keys())}",
     )
