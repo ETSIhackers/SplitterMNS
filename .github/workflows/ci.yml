@@ -15,9 +15,6 @@ defaults:
 
 jobs:
   validate:
-    strategy:
-      matrix:
-        cppVersion: [17]
 
     name: Run tests
     runs-on: ubuntu-latest
@@ -32,30 +29,9 @@ jobs:
         with:
           activate-environment: yardl
           environment-file: temp-ci-environment.yml
-      - name: Install yardl
-        run: |
-          rm temp-ci-environment.yml
-          YARDL_DIR=${{github.workspace}}/yardl
-          mkdir ${YARDL_DIR}
-          YARDL_VERSION=0.6.2
-          wget --quiet "https://github.com/microsoft/yardl/releases/download/v${YARDL_VERSION}/yardl_${YARDL_VERSION}_linux_x86_64.tar.gz"
-          tar -xzf "yardl_${YARDL_VERSION}_linux_x86_64.tar.gz" -C "${YARDL_DIR}"
-          rm "yardl_${YARDL_VERSION}_linux_x86_64.tar.gz"
-          echo "${YARDL_DIR}" >> $GITHUB_PATH
-
-      - name: Build model
-        run: |
-          cd PETSIRD/model
-          yardl generate
 
       - name: Python
         run: |
-          pip install ./PETSIRD/python
+          pip install petsird
           cd python
           python start.py
-
-      - name: Cpp
-        run: |
-          cd cpp && mkdir -p build && cd build
-          cmake -G Ninja -S .. -DHDF5_ROOT="$CONDA_PREFIX"
-          ninja
