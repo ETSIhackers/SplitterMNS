@@ -1,10 +1,6 @@
-Copyright 2023 University College London (UCL)
 
 This software product is developed for the Emission Tomography Standardization
 Initiative (ETSI), https://etisinitiative.org.
-
-Main contributors:
-Kris Thielemans (UCL)
 
 Hackers:
 Nikos Efthimiou (MGH)
@@ -12,6 +8,7 @@ Ezzat Elmoujarkach (Univ Lübeck)
 George Soultanidis (BMEII)
 Maxime Toussaint (UdS)
 Glenn Wells (uOttawa)
+Philippe Phonemy (Tohoku University)
 
 ### Apache License ###
 

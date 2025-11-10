@@ -6,3 +6,6 @@
 *~
 *.bak
 .DS_Store
+.vscode
+*.petsird
+*.bin
