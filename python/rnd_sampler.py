@@ -7,11 +7,11 @@ times block or events.
 
 
 TODO:
-	Core:
-		- Singles rates is not ajusted.
-		- Dead times measurement is not dealt with.
-	Feature:
-		- Quicker algo
+        Core:
+                - Singles rates is not ajusted.
+                - Dead times measurement is not dealt with.
+        Feature:
+                - Quicker algo
 """
 
 #########################################################################################
@@ -46,18 +46,31 @@ def defineWriter(oFile: Union[str, None], verbose: int):
         return oFile
 
 
-def sampleByTimeBlock(cTimeBlock: TimeBlock, retFrac: float):
+def sampleByTimeBlock(cTimeBlock: None, retFrac: float):
     if random.random() < retFrac:
         return (cTimeBlock,), None
     else:
         return None
 
 
-def sampleByEvent(cTimeBlock: TimeBlock, retFrac: float):
-    keptPrompt = []
-    for cPr in cTimeBlock.value.prompt_events:
-        if random.random() < retFrac:
-            keptPrompt.append(cPr)
+def sampleByEvent(cTimeBlock: None, retFrac: float):
+
+    if cTimeBlock.value.single_events is not None:
+        keptSingle = []
+        for cDl in cTimeBlock.value.single_events:
+            if random.random() < retFrac:
+                keptSingle.append(cDl)
+        nbKeptSingle = len(keptSingle)
+
+    else:
+        keptSingle = None
+        nbKeptSingle = 0
+
+    if cTimeBlock.value.prompt_events is not None:
+        keptPrompt = []
+        for cPr in cTimeBlock.value.prompt_events:
+            if random.random() < retFrac:
+                keptPrompt.append(cPr)
 
     if cTimeBlock.value.delayed_events is not None:
         keptDelay = []
@@ -79,16 +92,28 @@ def sampleByEvent(cTimeBlock: TimeBlock, retFrac: float):
         keptTriple = None
         nbKeptTriple = 0
 
+    if cTimeBlock.value.quadruple_events is not None:
+        keptQuadruple = []
+        for cDl in cTimeBlock.value.quadruple_events:
+            if random.random() < retFrac:
+                keptQuadruple.append(cDl)
+        nbKeptQuadruple = len(keptQuadruple)
+    else:
+        keptQuadruple = None
+        nbKeptQuadruple = 0
+
     stats = (len(keptPrompt), nbKeptDelay, nbKeptTriple)
 
     return (
         petsird.TimeBlock.EventTimeBlock(
             petsird.EventTimeBlock(
-                start=time_block.value.start,
+                time_interval=petsird.TimeInterval,
+                single_events=keptSingle,
                 prompt_events=keptPrompt,
                 delayed_events=keptDelay,
                 triple_events=keptTriple,
-            ),
+                quadruple_events=keptQuadruple,
+            )
         ),
     ), stats
 
